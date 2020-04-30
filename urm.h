@@ -1,10 +1,10 @@
 #include <vector>
 using namespace std;
-class Instruction;
+class V_Instruction;
 class URM{
 	public:
 	vector<int> vars;
-	vector<Instruction> instructions;
+	vector<V_Instruction*> *instructions;
 	int programCounter;
-	URM();
+	URM(vector <V_Instruction*> *instructions);
 };

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include <sstream>
 #include <fstream>
 #include "urm.h"
@@ -17,6 +18,7 @@ class Instruction{
 	//Constructor for an instruction object. 
 	Instruction(){
 	}
+	virtual ~Instruction(){}
 };
 class V_Instruction : public Instruction{
 	public :
@@ -30,9 +32,7 @@ class V_Instruction : public Instruction{
 //L: xi <- xi + 1
 class IncrementInstruction : public V_Instruction{
 	public:
-	IncrementInstruction(int variable) : V_Instruction(variable){
-
-	}
+	IncrementInstruction(int variable) : V_Instruction(variable){}
 	void execute(URM *program) override{
 		++program->vars[variable];
 	}
@@ -85,9 +85,9 @@ class ConditionalGotoInstruction : public V_Instruction{
 		}
 	}
 };
-URM::URM(){
-	programCounter = 0;
-
+URM::URM(vector<V_Instruction*> *instructions){
+	programCounter = 0 ;
+	this->instructions = instructions;
 }
 //Reads a URM variable from the given token.
 int readVariable(string *token){
@@ -143,11 +143,11 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 	else if(token == "if"){ //Conditional goto instruction.
 		//Read the variable for the conditional goto.
 		if(!(file >> token))return NULL;
-		
 		int variable = readVariable(&token);
 		int label1, label2; 
-		//If the variable is not valid, or we can't read an '='
-		if(variable == -1 || !readCharacter(&file,'='))return NULL;
+		
+		//If the variable is not valid, or we can't read an '=' then a '0', we should return null.
+		if(variable == -1 || !readCharacter(&file,'=') || !readCharacter(&file,'0'))return NULL;
 		if(!(file >> token) || token != "goto")return NULL;
 		//Read the first label from the conditional goto.
 		
@@ -179,10 +179,16 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 	else{//Assignment, increment or decrement instruction. 
 		//Read the variable for the instruction.
 		int variable = readVariable(&token);
-		if(variable == -1)return NULL;
+		if(variable == -1){
+			cerr << "Failed to read variable from token \'" << token << "\' from instruction " << expectedLabel << '\n';
+			return NULL;
+		}
 
 		//Ensure that the next token is a <- 
-		if(!readCharacter(&file,'<') || !readCharacter(&file,'-')) return NULL;
+		if(!readCharacter(&file,'<') || !readCharacter(&file,'-')){
+			cerr << "Variable change instruction missing '<-' from instruction " << expectedLabel << '\n';
+			return NULL;
+		}
 		//Read a token - it'll either be a variable (e.g. X111) or a constant (e.g. 5). 
 		if(!(file >> token))return NULL;
 		if(variable == readVariable(&token)){ //Increment or decrement instruction.
@@ -194,6 +200,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 				i = new DecrementInstruction(variable);
 			}
 			else{//Incorrect instruction.
+				cerr << "Incorrect token: \'" << token << "\' during increment or decrement instruction " << expectedLabel << '\n';
 				return NULL;
 			}
 
@@ -204,7 +211,10 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 			int constant;
 			stringstream tokenStream(token);
 			//Read a constant - ensure that we used the ENTIRE stringstream. 
-			if(!(tokenStream >> constant) || tokenStream.rdbuf()->in_avail() != 0)return NULL; 
+			if(!(tokenStream >> constant) || tokenStream.rdbuf()->in_avail() != 0){
+				cerr << "Incorrect variable or constant \'" << token << "\' from instruction " << expectedLabel << '\n';
+				return NULL;
+			}	
 			
 			//If the constant < 0, this is an illegal URM.
 			if(constant < 0){
@@ -226,26 +236,44 @@ int main(int argc,char **argv){
 		ifstream file(argv[1]);
 		if(!file){
 			cerr << "Cannot open URM source file.\n";
+			return 1;
 		}
+		vector <V_Instruction*> *instructions = new vector<V_Instruction*>();
+		//Map used to enumerate URM variable numbers (3, 2, 5, ...) to integers (0, 1, 2, ...)
+		map <int,int> m;
 		Instruction *i = readInstruction(file,currentLabel,&maxGoto);
-		Instruction *dummy = new Instruction();
-		cout << "Type dummy: " << typeid(dummy).name() << " type i: " << typeid(i).name() << '\n';
-		while(i != NULL && typeid(i) != typeid(dummy)){
-			cout << currentLabel << " ";
+		V_Instruction *variableInstruction = dynamic_cast<V_Instruction *>(i);
+
+		/*Keep reading instructions until the stop instruction is reached.*/
+		while(variableInstruction != NULL){
+			//Adjust the variable of the instruction. 
+			//If the variable hasn't been mapped to a HT element...
+			if(m.count(variableInstruction->variable) == 0){
+				variableInstruction->variable = (int)m.size();
+				m.insert(pair <int,int>(variableInstruction->variable,(int)m.size()) );
+			}
+			//If the variable has, replace the variable with a mapped element.
+			else{
+				variableInstruction->variable = m[variableInstruction->variable];
+			}
+			instructions->push_back(variableInstruction);
 			++currentLabel;
 			i = readInstruction(file,currentLabel,&maxGoto);
+			variableInstruction = dynamic_cast<V_Instruction *>(i);
 		}
-		cout << "\n";
 		if(i == NULL){
 			cerr <<"Problem with URM stored in " << argv[1] << '\n';
 			cerr << "Oops! One of your instructions doesn't seem to be in the right format.\n";
+			return 1;
 		}
 		else{
 			if(maxGoto > currentLabel){
 				cerr << "URM has a goto jump that exceeds the stop instruction. Be careful, and please rewrite the URM.\n";
+				return 1;
 			}
 			else{
 				cout << "Looks like this is a syntactically correct URM!\n";
+				URM *program = new URM(instructions);
 			}
 		}
 	}
