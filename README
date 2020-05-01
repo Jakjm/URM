@@ -21,7 +21,7 @@ The stop instruction occurs exactly ONCE in a URM program, and must be the last 
 The variables of a URM program are of the following form: X1, X11, X111, etc.
 
 An example URM program is as follows:
-1: X1 <- 5 
+1: X1 <- 5
 2: X1 <- X1 + 1
 3: if X1 = 0 goto 4 else goto 1
 4: stop
