@@ -3,8 +3,8 @@
 3: X11 <- X11 + 1 
 4: X111 <- X111 + 1 
 5: X1 <- X1 - 1
-6: if X1 = 0 goto 11 else goto 2
-7: if X111 = 0 goto 10 else goto 8
+6: if X1 = 0 goto 2 else goto 2
+7: if X111 = 0 goto 11 else goto 8
 8: X111 <- X111 - 1
 9: X1 <- X1 + 1
 10: if X111 = 0 goto 7 else goto 7

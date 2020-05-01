@@ -26,15 +26,16 @@ class V_Instruction : public Instruction{
 	V_Instruction(int variable) : Instruction(){
 		this->variable = variable;
 	}
-	virtual void execute(URM *program) = 0;
+	virtual int execute(URM *program) = 0;
 };
 //For instructions of the form
 //L: xi <- xi + 1
 class IncrementInstruction : public V_Instruction{
 	public:
 	IncrementInstruction(int variable) : V_Instruction(variable){}
-	void execute(URM *program) override{
-		++program->vars[variable];
+	int execute(URM *program) override{
+		++program->variables->operator[](variable);
+		return -1;
 	}
 };
 
@@ -45,10 +46,11 @@ class DecrementInstruction : public V_Instruction{
 	DecrementInstruction(int variable) : V_Instruction(variable){
 	
 	}
-	void execute(URM *program) override{
-		if(program->vars[variable] > 0){
-			--program->vars[variable];
+	int execute(URM *program) override{
+		if(program->variables->operator[](variable) > 0){
+			--program->variables->operator[](variable);
 		}
+		return -1;
 	}
 
 };
@@ -61,8 +63,9 @@ class AssignmentInstruction : public V_Instruction{
 	AssignmentInstruction(int variable,int value) : V_Instruction(variable){
 		this->value = value;
 	}
-	void execute(URM *program) override{
-		program->vars[variable] = value;
+	int execute(URM *program) override{
+		program->variables->operator[](variable) = value;
+		return -1;
 	}
 };
 
@@ -76,18 +79,53 @@ class ConditionalGotoInstruction : public V_Instruction{
 		this->X = jump1;
 		this->Y = jump2;
 	}
-	void execute(URM *program) override{
-		if(program->vars[variable] == 0){
-			program->programCounter = X;
+	int execute(URM *program) override{
+		if(program->variables->operator[](variable) == 0){
+			return X;
 		}
 		else{
-			program->programCounter = Y;
+			return Y;
 		}
 	}
 };
-URM::URM(vector<V_Instruction*> *instructions){
+
+ostream& operator <<(ostream& os, URM* u){
+	os << "Values of variables after running program:\n";
+	map<int,int>::const_iterator it = u->varMap.begin();
+	int actualVar,varIndex,varValue;
+	while(it != u->varMap.end()){
+		actualVar = it->first;
+		varIndex = it->second;
+		varValue = u->variables->operator[](varIndex);
+		os << "X1";
+		while(actualVar > 0){
+			os << '1';
+			--actualVar;
+		}
+		os << ": " << varValue  << '\n';
+		it++;
+	}
+	return os;
+}
+URM::URM(vector<V_Instruction*> *instructions,vector <int> *vars,map <int,int> varMap){
 	programCounter = 0 ;
 	this->instructions = instructions;
+	this->variables = vars;
+	this->varMap = varMap;
+}
+void URM::run(){
+	V_Instruction *currentInstruction;
+	int nextPC;
+	while(programCounter < instructions->size()){
+		currentInstruction = instructions->operator[](programCounter);
+		nextPC = currentInstruction->execute(this);
+		if(nextPC >= 0){
+			programCounter = nextPC;
+		}
+		else{
+			++programCounter;
+		}
+	}
 }
 //Reads a URM variable from the given token.
 int readVariable(string *token){
@@ -239,6 +277,7 @@ int main(int argc,char **argv){
 			return 1;
 		}
 		vector <V_Instruction*> *instructions = new vector<V_Instruction*>();
+		vector <int> *variables = new vector<int>();
 		//Map used to enumerate URM variable numbers (3, 2, 5, ...) to integers (0, 1, 2, ...)
 		map <int,int> m;
 		Instruction *i = readInstruction(file,currentLabel,&maxGoto);
@@ -250,6 +289,7 @@ int main(int argc,char **argv){
 			//If the variable hasn't been mapped to a HT element...
 			if(m.count(variableInstruction->variable) == 0){
 				variableInstruction->variable = (int)m.size();
+				variables->push_back(0);
 				m.insert(pair <int,int>(variableInstruction->variable,(int)m.size()) );
 			}
 			//If the variable has, replace the variable with a mapped element.
@@ -273,7 +313,9 @@ int main(int argc,char **argv){
 			}
 			else{
 				cout << "Looks like this is a syntactically correct URM!\n";
-				URM *program = new URM(instructions);
+				URM *program = new URM(instructions,variables,m);
+				program->run();
+				cout << program;
 			}
 		}
 	}
