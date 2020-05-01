@@ -34,7 +34,12 @@ class IncrementInstruction : public V_Instruction{
 	public:
 	IncrementInstruction(int variable) : V_Instruction(variable){}
 	int execute(URM *program) override{
-		++program->variables->operator[](variable);
+		int maxValue = 1 << 30 - 1;
+		maxValue += 1 << 30;
+		//Ensure the variable cannot be increased above the max value.
+		if(program->variables->operator[](variable) < maxValue){
+			++program->variables->operator[](variable);
+		}
 		return -1;
 	}
 };
