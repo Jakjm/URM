@@ -6,8 +6,8 @@ class URM{
 	public:
 	vector<int> *variables;
 	vector<V_Instruction*> *instructions;
-	map<int,int> varMap;
+	map<string,int> varMap;
 	int programCounter;
-	URM(vector <V_Instruction*> *instructions,vector <int> *vars,map <int,int> varMap);
+	URM(vector <V_Instruction*> *instructions,vector <int> *vars,map <string,int> varMap);
 	void run();
 };

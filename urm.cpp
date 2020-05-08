@@ -96,23 +96,19 @@ class ConditionalGotoInstruction : public V_Instruction{
 
 ostream& operator <<(ostream& os, URM* u){
 	os << "Values of variables after running program:\n";
-	map<int,int>::const_iterator it = u->varMap.begin();
-	int actualVar,varIndex,varValue;
+	map<string,int>::const_iterator it = u->varMap.begin();
+	int varIndex,varValue;
+	string actualVar;
 	while(it != u->varMap.end()){
 		actualVar = it->first;
 		varIndex = it->second;
 		varValue = u->variables->operator[](varIndex);
-		os << "X1";
-		while(actualVar > 0){
-			os << '1';
-			--actualVar;
-		}
-		os << ": " << varValue  << '\n';
+		os << actualVar << ": " << varValue  << '\n';
 		it++;
 	}
 	return os;
 }
-URM::URM(vector<V_Instruction*> *instructions,vector <int> *vars,map <int,int> varMap){
+URM::URM(vector<V_Instruction*> *instructions,vector <int> *vars,map <string,int> varMap){
 	programCounter = 0 ;
 	this->instructions = instructions;
 	this->variables = vars;
@@ -133,8 +129,10 @@ void URM::run(){
 	}
 }
 //Reads a URM variable from the given token.
-int readVariable(string *token){
+int readVariable(string *token, map<string,int> &m){
 	int t_index = 1;
+
+	//Checking that URM variable syntax is followed. 
 	//All urm variables must start with X.
 	if(token->at(0) != 'X'){
 		return -1;
@@ -143,7 +141,24 @@ int readVariable(string *token){
 	while(t_index < token->length() && token->at(t_index) == '1')++t_index;
 	//If one of the characters after X wasn't a 1, we should return -1 because the variable is incorrectly formatted. 
 	if(t_index < token->length())return -1;
+	t_index -= 2;
+	if(t_index < 0)return -1;
 	
+
+	//Adjust the variable of the instruction to a naturalized one.
+	//If the variable hasn't been mapped to a HT element...
+	string str = *token;
+	if(m.count(str) == 0){
+		m.insert(pair <string,int>(str,(int)m.size()) );
+		return m.size() - 1;
+	}
+	//If the variable has, replace the variable with a mapped element.
+	else{
+		return m[str];
+	}
+
+
+
 	//Otherwise, return the number of 1s in the token, which is t_index - 2 
 	return t_index - 2; 
 }
@@ -163,7 +178,7 @@ int readCharacter(ifstream *file,char c){
 //Function to read an instruction from an input file stream.
 //The label of the instruction must match the expected label.
 //maxLabel is the value of the maximum goto label in our program.
-Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
+Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<string,int> &m){
 	int label;
 	char input;
 	string token;
@@ -186,7 +201,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 	else if(token == "if"){ //Conditional goto instruction.
 		//Read the variable for the conditional goto.
 		if(!(file >> token))return NULL;
-		int variable = readVariable(&token);
+		int variable = readVariable(&token,m);
 		int label1, label2; 
 		
 		//If the variable is not valid, or we can't read an '=' then a '0', we should return null.
@@ -221,7 +236,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 	}
 	else{//Assignment, increment or decrement instruction. 
 		//Read the variable for the instruction.
-		int variable = readVariable(&token);
+		int variable = readVariable(&token,m);
 		if(variable == -1){
 			cerr << "Failed to read variable from token \'" << token << "\' from instruction " << expectedLabel << '\n';
 			return NULL;
@@ -234,7 +249,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto){
 		}
 		//Read a token - it'll either be a variable (e.g. X111) or a constant (e.g. 5). 
 		if(!(file >> token))return NULL;
-		if(variable == readVariable(&token)){ //Increment or decrement instruction.
+		if(variable == readVariable(&token,m)){ //Increment or decrement instruction.
 			if(!(file >> token))return NULL;
 			if(token == "+"){ //Increment instruction
 				i = new IncrementInstruction(variable);
@@ -282,28 +297,16 @@ int main(int argc,char **argv){
 			return 1;
 		}
 		vector <V_Instruction*> *instructions = new vector<V_Instruction*>();
-		vector <int> *variables = new vector<int>();
 		//Map used to enumerate URM variable numbers (3, 2, 5, ...) to integers (0, 1, 2, ...)
-		map <int,int> m;
-		Instruction *i = readInstruction(file,currentLabel,&maxGoto);
+		map <string,int> m;
+		Instruction *i = readInstruction(file,currentLabel,&maxGoto,m);
 		V_Instruction *variableInstruction = dynamic_cast<V_Instruction *>(i);
 
 		/*Keep reading instructions until the stop instruction is reached.*/
 		while(variableInstruction != NULL){
-			//Adjust the variable of the instruction. 
-			//If the variable hasn't been mapped to a HT element...
-			if(m.count(variableInstruction->variable) == 0){
-				m.insert(pair <int,int>(variableInstruction->variable,(int)m.size()) );
-				variables->push_back(0);
-				variableInstruction->variable = (int)m.size();
-			}
-			//If the variable has, replace the variable with a mapped element.
-			else{
-				variableInstruction->variable = m[variableInstruction->variable];
-			}
 			instructions->push_back(variableInstruction);
 			++currentLabel;
-			i = readInstruction(file,currentLabel,&maxGoto);
+			i = readInstruction(file,currentLabel,&maxGoto,m);
 			variableInstruction = dynamic_cast<V_Instruction *>(i);
 		}
 		if(i == NULL){
@@ -317,6 +320,7 @@ int main(int argc,char **argv){
 				return 1;
 			}
 			else{
+				vector <int> *variables = new vector<int>(m.size());
 				cout << "Looks like this is a syntactically correct URM!\n";
 				URM *program = new URM(instructions,variables,m);
 				program->run();
