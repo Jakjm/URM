@@ -293,9 +293,9 @@ int main(int argc,char **argv){
 			//Adjust the variable of the instruction. 
 			//If the variable hasn't been mapped to a HT element...
 			if(m.count(variableInstruction->variable) == 0){
-				variableInstruction->variable = (int)m.size();
-				variables->push_back(0);
 				m.insert(pair <int,int>(variableInstruction->variable,(int)m.size()) );
+				variables->push_back(0);
+				variableInstruction->variable = (int)m.size();
 			}
 			//If the variable has, replace the variable with a mapped element.
 			else{
