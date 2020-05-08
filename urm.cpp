@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <map>
@@ -129,22 +130,21 @@ void URM::run(){
 	}
 }
 //Reads a URM variable from the given token.
-int readVariable(string *token, map<string,int> &m){
-	int t_index = 1;
+int readVariable(string *token, map<string,int> &m, int metaURM){
+	if(!metaURM){
+		//Checking that URM variable syntax is followed. 
+		//All urm variables must start with X.
+		if(token->length() < 1 || token->at(0) != 'X'){
+			return -1;
+		}
+		//Start from the first character and keep reading 1s. 
+		int t_index = 1;
+		//Read until we exceed the token length, or the current character element isn't a '1'.
+		while(t_index < token->length() && token->at(t_index) == '1')++t_index;
 
-	//Checking that URM variable syntax is followed. 
-	//All urm variables must start with X.
-	if(token->at(0) != 'X'){
-		return -1;
+		//We must ensure that the entirety of the token after the X consisted of 1s, and that the token had at least one '1'.
+		if(t_index < token->length() || t_index <= 1)return -1;
 	}
-	//Read until we exceed the token length, or the current character element isn't a '1'.
-	while(t_index < token->length() && token->at(t_index) == '1')++t_index;
-	//If one of the characters after X wasn't a 1, we should return -1 because the variable is incorrectly formatted. 
-	if(t_index < token->length())return -1;
-	t_index -= 2;
-	if(t_index < 0)return -1;
-	
-
 	//Adjust the variable of the instruction to a naturalized one.
 	//If the variable hasn't been mapped to a HT element...
 	string str = *token;
@@ -152,15 +152,10 @@ int readVariable(string *token, map<string,int> &m){
 		m.insert(pair <string,int>(str,(int)m.size()) );
 		return m.size() - 1;
 	}
-	//If the variable has, replace the variable with a mapped element.
+	//If the variable has been mapped to a naturalized variable, replace the variable with a mapped element.
 	else{
 		return m[str];
 	}
-
-
-
-	//Otherwise, return the number of 1s in the token, which is t_index - 2 
-	return t_index - 2; 
 }
 //Function to read up to a specific character from the stream.
 int readCharacter(ifstream *file,char c){
@@ -178,10 +173,11 @@ int readCharacter(ifstream *file,char c){
 //Function to read an instruction from an input file stream.
 //The label of the instruction must match the expected label.
 //maxLabel is the value of the maximum goto label in our program.
-Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<string,int> &m){
+Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<string,int> &m,int metaURM){
 	int label;
 	char input;
 	string token;
+	
 	//If we can't read a label from the file or if it's not what we were expecting, return NULL.
 	if(!(file >> label) || label != expectedLabel){
 		cerr << "Error with instruction " << expectedLabel << ". Couldn't read the label.\n";
@@ -201,7 +197,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<
 	else if(token == "if"){ //Conditional goto instruction.
 		//Read the variable for the conditional goto.
 		if(!(file >> token))return NULL;
-		int variable = readVariable(&token,m);
+		int variable = readVariable(&token,m,metaURM);
 		int label1, label2; 
 		
 		//If the variable is not valid, or we can't read an '=' then a '0', we should return null.
@@ -236,7 +232,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<
 	}
 	else{//Assignment, increment or decrement instruction. 
 		//Read the variable for the instruction.
-		int variable = readVariable(&token,m);
+		int variable = readVariable(&token,m,metaURM);
 		if(variable == -1){
 			cerr << "Failed to read variable from token \'" << token << "\' from instruction " << expectedLabel << '\n';
 			return NULL;
@@ -249,7 +245,8 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<
 		}
 		//Read a token - it'll either be a variable (e.g. X111) or a constant (e.g. 5). 
 		if(!(file >> token))return NULL;
-		if(variable == readVariable(&token,m)){ //Increment or decrement instruction.
+		//If the token is stored by the map, and it's associated with the same naturalized variable....
+		if(m.count(token) > 0 && m[token] == variable){ //Increment or decrement instruction.
 			if(!(file >> token))return NULL;
 			if(token == "+"){ //Increment instruction
 				i = new IncrementInstruction(variable);
@@ -284,29 +281,35 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<
 	return i;
 }
 int main(int argc,char **argv){
-	if(argc != 2){
+	if(argc < 2){
 		cerr << "Incorrect number of arguments! Please specify 2 arguments.\n";
 		return 1;
 	}
 	else{
-		int maxGoto = 1;
-		int currentLabel = 1;
+		int metaURM = 0, maxGoto = 1, currentLabel = 1;
+		//Set up an input filestream using the 1st command line argument. 
 		ifstream file(argv[1]);
 		if(!file){
 			cerr << "Cannot open URM source file.\n";
 			return 1;
 		}
+
+		//Allow the URM to contain metavariables if the --meta or -m argument is used.
+		if(argc > 2 && (strcmp(argv[2],"--meta") == 0 || strcmp(argv[2],"-m") == 0)){
+			metaURM = 1;
+		}
+
 		vector <V_Instruction*> *instructions = new vector<V_Instruction*>();
 		//Map used to enumerate URM variable numbers (3, 2, 5, ...) to integers (0, 1, 2, ...)
 		map <string,int> m;
-		Instruction *i = readInstruction(file,currentLabel,&maxGoto,m);
+		Instruction *i = readInstruction(file,currentLabel,&maxGoto,m,metaURM);
 		V_Instruction *variableInstruction = dynamic_cast<V_Instruction *>(i);
 
 		/*Keep reading instructions until the stop instruction is reached.*/
 		while(variableInstruction != NULL){
 			instructions->push_back(variableInstruction);
 			++currentLabel;
-			i = readInstruction(file,currentLabel,&maxGoto,m);
+			i = readInstruction(file,currentLabel,&maxGoto,m,metaURM);
 			variableInstruction = dynamic_cast<V_Instruction *>(i);
 		}
 		if(i == NULL){
