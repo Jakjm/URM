@@ -235,6 +235,7 @@ Instruction *readInstruction(ifstream &file,int expectedLabel,int *maxGoto, map<
 		int variable = readVariable(&token,m,metaURM);
 		if(variable == -1){
 			cerr << "Failed to read variable from token \'" << token << "\' from instruction " << expectedLabel << '\n';
+			cerr << "Did you mean to use the -m (same as --meta) option, to allow metavariables?" << '\n';
 			return NULL;
 		}
 
@@ -313,8 +314,7 @@ int main(int argc,char **argv){
 			variableInstruction = dynamic_cast<V_Instruction *>(i);
 		}
 		if(i == NULL){
-			cerr <<"Problem with URM stored in " << argv[1] << '\n';
-			cerr << "Oops! One of your instructions doesn't seem to be in the right format.\n";
+			cerr << '\n' << "Problem with URM stored in \'" << argv[1] << "\'. Aborting.\n";
 			return 1;
 		}
 		else{
