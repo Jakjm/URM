@@ -149,7 +149,7 @@ int readVariable(string *token, map<string,int> &m, int metaURM){
 	//If the variable hasn't been mapped to a HT element...
 	string str = *token;
 	if(m.count(str) == 0){
-		m.insert(pair <string,int>(str,(int)m.size()) );
+		m.insert(pair <string,int>(str,(int)m.size()));
 		return m.size() - 1;
 	}
 	//If the variable has been mapped to a naturalized variable, replace the variable with a mapped element.

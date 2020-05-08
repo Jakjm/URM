@@ -19,6 +19,7 @@ Each additional instruction has a label that is one greater than the previous la
 The stop instruction occurs exactly ONCE in a URM program, and must be the last instruction in the program.
 
 The variables of a URM program are of the following form: X1, X11, X111, etc.
+However, using the -m or --meta option, one can use any string that does not contain whitespace characters as variables (called metavariables).
 
 An example URM program is as follows:
 1: X1 <- 5
@@ -27,8 +28,18 @@ An example URM program is as follows:
 4: stop
 
 As you can see, there is no requirement that a URM program comes to a halt - the above program is partial computable, but it is not in the set of recursive functions (asit does not halt).
- 
+
+Running programs: 
+Use the 'make' command to compile the runurm executable file, which allows you to emulate urm programs. 
+If the above program was stored in the file program.txt, you can run it using the command:
+./runurm program.txt
+
+If the program uses metavariables, you can run it using:
+./runurm program.txt -m 
+or 
+./runurm program.txt --meta 
+
+I've been a little lazy, so you must put the filename argument before the metavariable argument. 
 
 Todo list: 
--Variables currently have a maximum value of (2^31) -1
--Metavariables are not currently supported. 
+-Variables currently have a maximum value of (2^31) -1, but this will soon change to allow variables of arbitrary size. 
