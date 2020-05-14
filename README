@@ -18,8 +18,18 @@ Each additional instruction has a label that is one greater than the previous la
 
 The stop instruction occurs exactly ONCE in a URM program, and must be the last instruction in the program.
 
-The variables of a URM program are of the following form: X1, X11, X111, etc.
+The variables of a URM program are of the following form: X1, X11, X111, etc. 
 However, using the -m or --meta option, one can use any string that does not contain whitespace characters as variables (called metavariables).
+
+Each variable is given the initial value of 0. The variables of URMs are natural numbers, so they cannot take on negative values.
+While this may feel limiting, you may still code floating point and negative numbers using prime-power coding.
+
+For example, a signed variable can be expressed as a URM variable that is equal to 2^(1+sign) * 3^(1+value).
+Where a sign value of 0 indicates the variable is positive and 1 indicates the variable is negative.
+Is this ridiculously inefficient? Of course it is! 
+But it is very useful to observe that despite the limited number of instructions, URMs can any partial computable function!
+(However, this emulator limits the maximum value so far to the maxmimum size of a signed 32 bit integer for now)
+
 
 An example URM program is as follows:
 1: X1 <- 5
